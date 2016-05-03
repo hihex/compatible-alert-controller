@@ -99,7 +99,7 @@ public class BPCompatibleAlertController : NSObject, UIAlertViewDelegate {
     public var preferredAction: BPCompatibleAlertAction? = nil
 
     private var alerter: AlertProtocol!
-    private var actions: [String : BPCompatibleAlertAction]
+    private var actions: [BPCompatibleAlertAction]
     private var actionObservers: [NSObjectProtocol] = []
     public var resourcesHaveBeenReleased: Bool = false
     private var textFieldConfigurations: [BPCompatibleTextFieldConfigruationHandler]
@@ -124,7 +124,7 @@ public class BPCompatibleAlertController : NSObject, UIAlertViewDelegate {
         self.message = message
         self.alertStyle = alertStyle
         self.alertViewStyle = UIAlertViewStyle.Default
-        self.actions = [String : BPCompatibleAlertAction]()
+        self.actions = []
         self.textFieldConfigurations = [BPCompatibleTextFieldConfigruationHandler]()
     }
 
@@ -158,7 +158,7 @@ public class BPCompatibleAlertController : NSObject, UIAlertViewDelegate {
     - parameter action: The BPCompatibleAlertAction with set title and action block.
     */
     public func addAction(action: BPCompatibleAlertAction) -> Void {
-        actions[action.title!] = action
+        actions.append(action)
 
         // listen to changes on the BPCompatibleAlertAction enabled field to update the UIAlertAction in the alertController
         let observerObject = NSNotificationCenter.defaultCenter().addObserverForName(BPCompatibleAlertActionEnabledDidChangeNotification, object: action, queue: NSOperationQueue.mainQueue()) { (notification) in
@@ -194,7 +194,7 @@ public class BPCompatibleAlertController : NSObject, UIAlertViewDelegate {
         if #available(iOS 8.0, *) {
             self.alerter = BPAlertController(title: title, message: message, preferredStyle: alertControllerStyle)
             let alertController = self.alerter as! BPAlertController
-            for action in actions.values {
+            for action in actions {
 
                 let uiAlertAction = UIAlertAction(title: action.title!, style: action.alertActionStyle, handler: { (alertAction) in
                     if let handler = action.handler {
@@ -223,15 +223,15 @@ public class BPCompatibleAlertController : NSObject, UIAlertViewDelegate {
                 }
             })
         } else {
-            var actionsCopy:[String : BPCompatibleAlertAction] = actions
+            var actionsCopy = [BPCompatibleAlertAction]()
             var cancelAction: BPCompatibleAlertAction?
             var index = 0
 
-            for (title, action) in actions {
+            for action in actions {
                 if action.actionStyle == BPCompatibleAlertActionStyle.Cancel {
                     cancelAction = action
-                    actionsCopy.removeValueForKey(title)
-                    break
+                } else {
+                    actionsCopy.append(action)
                 }
                 index += 1
             }
@@ -247,8 +247,8 @@ public class BPCompatibleAlertController : NSObject, UIAlertViewDelegate {
                 config(textField)
             }
 
-            for (title, _) in actionsCopy {
-                alertView.addButtonWithTitle(title)
+            for action in actionsCopy {
+                alertView.addButtonWithTitle(action.title!)
             }
 
             alertView.show()
@@ -301,7 +301,8 @@ public class BPCompatibleAlertController : NSObject, UIAlertViewDelegate {
         // After the first invocation postAlertDismissalActions() will have already removed
         //  all the actions, resulting in a nil action.
         let alertView = self.alerter as! BPAlertView
-        let action = actions[alertView.buttonTitleAtIndex(buttonIndex)!] as BPCompatibleAlertAction?
+        let title = alertView.buttonTitleAtIndex(buttonIndex)!
+        let action = actions.lazy.filter { $0.title == title }.first
         if let handler = action?.handler {
             handler(action)
         }
